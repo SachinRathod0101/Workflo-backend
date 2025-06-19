@@ -22,7 +22,17 @@ console.log("Step 2: Imported all dependencies");
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = ["http://localhost:3000", "http://localhost:5173"];
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://sunny-dango-9beaf5.netlify.app"
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
 const uploadsDir = path.join(__dirname, "Uploads");
 
 console.log("Step 3: Defined constants - PORT:", PORT, "Uploads Dir:", uploadsDir);
