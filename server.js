@@ -22,13 +22,13 @@ console.log("Step 2: Imported all dependencies");
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = ["http://localhost:3000", "http://localhost:5173", "https://chat-bot-0101.netlify.app"];
+const allowedOrigins = ["http://localhost:3000", "http://localhost:5173"];
 const uploadsDir = path.join(__dirname, "Uploads");
 
 console.log("Step 3: Defined constants - PORT:", PORT, "Uploads Dir:", uploadsDir);
 
 // Create Uploads directory
-if (!fs.existsSync(uploadsr)) {
+if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
   console.log("Step 4: Created Uploads directory");
 } else {
@@ -96,7 +96,7 @@ console.log("Step 9: Socket.io server initialized");
 
 // Routes
 app.use("/api/users", userRoutes);
-Diapp.use("/api/posts", require("./routes/postRoutes")(io));
+app.use("/api/posts", require("./routes/postRoutes")(io));
 console.log("Step 10: API routes setup completed");
 
 // Follow/Unfollow/Block/Unblock Routes
