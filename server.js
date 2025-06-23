@@ -13,6 +13,7 @@ const twilio = require("twilio");
 const sendEmail = require("./utils/sendEmail");
 const User = require("./models/User");
 const Form = require("./models/Request");
+const Story = require("./models/Story"); // Added
 const userRoutes = require("./routes/userRoutes");
 
 const app = express();
@@ -42,12 +43,15 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "Uploads/"),
   filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`),
 });
+
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf") cb(null, true);
-    else cb(new Error("Only PDF files are allowed!"), false);
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "video/mp4", "video/webm"];
+    if (allowedTypes.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Only images (JPEG, PNG, GIF) and videos (MP4, WebM) are allowed!"), false);
   },
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB limit
 });
 
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -75,6 +79,70 @@ const io = new Server(server, {
 
 app.use("/api/users", userRoutes);
 app.use("/api/posts", require("./routes/postRoutes")(io));
+
+app.get("/api/stories", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req;
+    if (!isValidObjectId(userId)) return res.status(400).json({ message: "Invalid user ID" });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const followingIds = user.following;
+    followingIds.push(userId); // Include the user's own stories
+
+    const stories = await Story.find({ userId: { $in: followingIds } })
+      .populate("userId", "name profileImage")
+      .sort({ createdAt: -1 });
+
+    res.json(stories);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch stories" });
+  }
+});
+
+app.post("/api/stories/add", authMiddleware, upload.single("file"), async (req, res) => {
+  try {
+    const { userId } = req;
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: "File is required" });
+    if (!isValidObjectId(userId)) return res.status(400).json({ message: "Invalid user ID" });
+
+    if (file.mimetype.startsWith("video/")) {
+      const videoPath = path.join("Uploads", file.filename);
+      const { duration } = await new Promise((resolve, reject) => {
+        require("ffmpeg-static");
+        const ffmpeg = require("fluent-ffmpeg")();
+        ffmpeg.input(videoPath).ffprobe((err, metadata) => {
+          if (err) reject(err);
+          else resolve(metadata.format);
+        });
+      });
+      if (duration > 30) {
+        deleteFile(videoPath);
+        return res.status(400).json({ message: "Video must be 30 seconds or less" });
+      }
+    }
+
+    const result = await cloudinary.uploader.upload(file.path, {
+      resource_type: file.mimetype.startsWith("video/") ? "video" : "image",
+    });
+    deleteFile(file.path);
+
+    const story = new Story({
+      userId,
+      url: result.secure_url,
+      fileType: file.mimetype,
+    });
+    await story.save();
+
+    io.emit("newStory", story);
+    res.json(story);
+  } catch (err) {
+    if (req.file) deleteFile(req.file.path);
+    res.status(500).json({ message: "Failed to upload story" });
+  }
+});
 
 app.post("/api/users/:id/follow", authMiddleware, async (req, res) => {
   try {
@@ -416,6 +484,16 @@ io.on("connection", (socket) => {
     const { to } = data;
     if (onlineUsers.includes(to)) {
       socket.to(to).emit("callRejected");
+    }
+  });
+
+  socket.on("deleteStory", async (storyId) => {
+    try {
+      if (!isValidObjectId(storyId)) return;
+      await Story.findByIdAndDelete(storyId);
+      io.emit("deleteStory", storyId);
+    } catch (err) {
+      console.error("Error deleting story:", err);
     }
   });
 
