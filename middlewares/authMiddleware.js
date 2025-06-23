@@ -6,7 +6,7 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error("JWT_SECRET is not defined in environment variables");
-  process.exit(1);
+  process.exit(1); // Exit for production, consider a warning for dev
 }
 
 /**
@@ -28,23 +28,24 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.id; // Changed from decoded.userId to decoded.id to match login payload
-    if (!req.userId) {
+    console.log("Decoded token:", decoded); // Debugging log
+    req.userId = decoded.userId; // Match with Login.jsx payload
+    if (!req.userId || typeof req.userId !== "string") {
       return res.status(401).json({ message: "Invalid token payload" });
     }
     next();
   } catch (err) {
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired", expired: true });
-    } else if (err.name === "JsonWebTokenError") {
-      return res.status(401).json({ message: "Invalid token" });
-    }
     console.error("JWT Error:", {
       message: err.message,
       name: err.name,
       path: req.path,
       method: req.method,
-    });
+    }); // Detailed error logging
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired", expired: true });
+    } else if (err.name === "JsonWebTokenError") {
+      return res.status(401).json({ message: "Invalid token" });
+    }
     return res.status(401).json({ message: "Authentication failed" });
   }
 };
