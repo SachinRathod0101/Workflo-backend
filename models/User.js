@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
   location: { type: String },
   profileImage: { type: String, default: "https://cdn-icons-png.flaticon.com/512/847/847969.png" },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
 });
 

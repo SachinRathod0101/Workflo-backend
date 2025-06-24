@@ -88,8 +88,7 @@ app.get("/api/stories", authMiddleware, async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const followingIds = user.following;
-    followingIds.push(userId); // Include the user's own stories
+    const followingIds = [...user.following, userId]; // Include the user's own stories
 
     const stories = await Story.find({ userId: { $in: followingIds } })
       .populate("userId", "name profileImage")
@@ -381,15 +380,13 @@ app.post("/api/login", async (req, res) => {
     return res.status(400).json({ message: "Username and password required" });
 
   try {
-    console.log("Login attempt:", { username, password }); // Debug log
     const user = await User.findOne({ username, password });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
     res.json({ message: "Login successful", user, token });
   } catch (err) {
-    console.error("Login error:", err); // Detailed error log
-    res.status(500).json({ message: "Internal Server Error", error: err.message });
+    res.status(500).json({ message: "Login error" });
   }
 });
 

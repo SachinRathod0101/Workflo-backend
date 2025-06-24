@@ -1,5 +1,6 @@
 const fs = require('fs');
 const csv = require('csv-parse');
+const path = require('path');
 const filePath = path.join(__dirname, 'your_actual_file.csv');
 
 // Read the exported CSV
