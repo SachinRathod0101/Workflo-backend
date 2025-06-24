@@ -381,13 +381,15 @@ app.post("/api/login", async (req, res) => {
     return res.status(400).json({ message: "Username and password required" });
 
   try {
+    console.log("Login attempt:", { username, password }); // Debug log
     const user = await User.findOne({ username, password });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
     res.json({ message: "Login successful", user, token });
   } catch (err) {
-    res.status(500).json({ message: "Login error" });
+    console.error("Login error:", err); // Detailed error log
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
   }
 });
 
